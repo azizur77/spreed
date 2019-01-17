@@ -48,14 +48,12 @@ class CallController extends OCSController {
 	 * @param string $appName
 	 * @param string $UserId
 	 * @param IRequest $request
-	 * @param IUserManager $userManager
 	 * @param TalkSession $session
 	 * @param Manager $manager
 	 */
 	public function __construct($appName,
 								$UserId,
 								IRequest $request,
-								IUserManager $userManager,
 								TalkSession $session,
 								Manager $manager) {
 		parent::__construct($appName, $request);
