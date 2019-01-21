@@ -100,6 +100,10 @@ class Application extends App {
 		$filesListener = $this->getContainer()->query(\OCA\Spreed\Files\Listener::class);
 		$filesListener->register();
 
+		/** @var \OCA\Spreed\Chat\Command\Listener $commandListener */
+		$commandListener = $this->getContainer()->query(\OCA\Spreed\Chat\Command\Listener::class);
+		$commandListener->register();
+
 		/** @var \OCA\Spreed\Files\TemplateLoader $filesTemplateLoader */
 		$filesTemplateLoader = $this->getContainer()->query(\OCA\Spreed\Files\TemplateLoader::class);
 		$filesTemplateLoader->register();
