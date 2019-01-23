@@ -23,8 +23,7 @@
 
 namespace OCA\Spreed\Controller;
 
-use OCA\Spreed\Model\Command;
-use OCA\Spreed\Model\CommandMapper;
+use OCA\Spreed\Service\CommandService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
@@ -32,35 +31,39 @@ use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 
 class CommandController extends OCSController {
-	/** @var CommandMapper */
-	protected $commandMapper;
+
+
+	/** @var CommandService */
+	protected $commandService;
 
 	/**
 	 * @param string $appName
 	 * @param IRequest $request
-	 * @param CommandMapper $commandMapper
+	 * @param CommandService $commandService
 	 */
 	public function __construct($appName,
 								IRequest $request,
-								CommandMapper $commandMapper) {
+								CommandService $commandService) {
 		parent::__construct($appName, $request);
-		$this->commandMapper = $commandMapper;
+		$this->commandService = $commandService;
 	}
 
 	/**
 	 * @return DataResponse
 	 */
 	public function index(): DataResponse {
-		$commands = $this->commandMapper->findAll();
+		$commands = $this->commandService->findAll();
 
 		$result = [];
 		foreach ($commands as $command) {
 			$result[] = [
 				'id' => $command->getId(),
+				'app' => $command->getApp(),
 				'name' => $command->getName(),
-				'pattern' => $command->getPattern(),
+				'pattern' => $command->getCommand(),
 				'script' => $command->getScript(),
-				'output' => $command->getOutput(),
+				'response' => $command->getResponse(),
+				'enabled' => $command->getEnabled(),
 			];
 		}
 
@@ -69,35 +72,27 @@ class CommandController extends OCSController {
 
 	/**
 	 * @param string $name
-	 * @param string $pattern
+	 * @param string $cmd
 	 * @param string $script
-	 * @param int $output
+	 * @param int $response
+	 * @param int $enabled
 	 * @return DataResponse
 	 */
-	public function create(string $name, string $pattern, string $script, int $output): DataResponse {
-		$command = new Command();
-
-		if (!\in_array($output, [Command::OUTPUT_NONE, Command::OUTPUT_USER, Command::OUTPUT_ALL], true)) {
+	public function create(string $name, string $cmd, string $script, int $response, int $enabled): DataResponse {
+		try {
+			$command = $this->commandService->create('', $name, $cmd, $script, $response, $enabled);
+		} catch (\InvalidArgumentException $e) {
 			return new DataResponse([], Http::STATUS_BAD_REQUEST);
 		}
 
-		// FIXME Validate "bot name"
-		// FIXME Validate "pattern"
-		// FIXME Validate "script"
-
-		$command->setName($name);
-		$command->setName($pattern);
-		$command->setName($script);
-		$command->setName($output);
-
-		$this->commandMapper->insert($command);
-
 		return new DataResponse([
 			'id' => $command->getId(),
+			'app' => $command->getApp(),
 			'name' => $command->getName(),
-			'pattern' => $command->getPattern(),
+			'pattern' => $command->getCommand(),
 			'script' => $command->getScript(),
-			'output' => $command->getOutput(),
+			'response' => $command->getResponse(),
+			'enabled' => $command->getEnabled(),
 		]);
 	}
 
@@ -107,56 +102,48 @@ class CommandController extends OCSController {
 	 */
 	public function show(int $id): DataResponse {
 		try {
-			$command = $this->commandMapper->findById($id);
+			$command = $this->commandService->findById($id);
 		} catch (DoesNotExistException $e) {
 			return new DataResponse([], Http::STATUS_NOT_FOUND);
 		}
 
 		return new DataResponse([
 			'id' => $command->getId(),
+			'app' => $command->getApp(),
 			'name' => $command->getName(),
-			'pattern' => $command->getPattern(),
+			'pattern' => $command->getCommand(),
 			'script' => $command->getScript(),
-			'output' => $command->getOutput(),
+			'response' => $command->getResponse(),
+			'enabled' => $command->getEnabled(),
 		]);
 	}
 
 	/**
 	 * @param int $id
 	 * @param string $name
-	 * @param string $pattern
+	 * @param string $cmd
 	 * @param string $script
-	 * @param int $output
+	 * @param int $response
+	 * @param int $enabled
 	 * @return DataResponse
 	 */
-	public function update(int $id, string $name, string $pattern, string $script, int $output): DataResponse {
+	public function update(int $id, string $name, string $cmd, string $script, int $response, int $enabled): DataResponse {
 		try {
-			$command = $this->commandMapper->findById($id);
+			$command = $this->commandService->update($id, $name,  $cmd, $script, $response, $enabled);
 		} catch (DoesNotExistException $e) {
 			return new DataResponse([], Http::STATUS_NOT_FOUND);
-		}
-
-		if (!\in_array($output, [Command::OUTPUT_NONE, Command::OUTPUT_USER, Command::OUTPUT_ALL], true)) {
+		} catch (\InvalidArgumentException $e) {
 			return new DataResponse([], Http::STATUS_BAD_REQUEST);
 		}
 
-		// FIXME Validate "bot name"
-		// FIXME Validate "pattern"
-		// FIXME Validate "script"
-
-		$command->setName($name);
-		$command->setName($pattern);
-		$command->setName($script);
-		$command->setName($output);
-
-		$this->commandMapper->update($command);
-
 		return new DataResponse([
 			'id' => $command->getId(),
+			'app' => $command->getApp(),
 			'name' => $command->getName(),
-			'pattern' => $command->getPattern(),
+			'pattern' => $command->getCommand(),
 			'script' => $command->getScript(),
-			'output' => $command->getOutput(),
+			'response' => $command->getResponse(),
+			'enabled' => $command->getEnabled(),
 		]);
 	}
 
@@ -166,12 +153,10 @@ class CommandController extends OCSController {
 	 */
 	public function destroy(int $id): DataResponse {
 		try {
-			$command = $this->commandMapper->findById($id);
+			$this->commandService->delete($id);
 		} catch (DoesNotExistException $e) {
 			return new DataResponse([], Http::STATUS_NOT_FOUND);
 		}
-
-		$this->commandMapper->delete($command);
 
 		return new DataResponse();
 	}
