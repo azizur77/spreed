@@ -38,31 +38,35 @@ class CommandService {
 
 	/**
 	 * @param string $app
-	 * @param string $name
 	 * @param string $cmd
+	 * @param string $name
 	 * @param string $script
 	 * @param int $response
 	 * @param int $enabled
 	 * @return Command
 	 * @throws \InvalidArgumentException
 	 */
-	public function create(string $app, string $name, string $cmd, string $script, int $response, int $enabled): Command {
+	public function create(string $app, string $cmd, string $name, string $script, int $response, int $enabled): Command {
+		try {
+			$this->mapper->find($app, $cmd);
+			throw new \InvalidArgumentException('command', 1);
+		} catch (DoesNotExistException $e) {
+		}
+
 		if (!\in_array($response, [Command::RESPONSE_NONE, Command::RESPONSE_USER, Command::RESPONSE_ALL], true)) {
-			throw new \InvalidArgumentException('Invalid response', 4);
+			throw new \InvalidArgumentException('response', 4);
 		}
 
 		if (!\in_array($enabled, [Command::ENABLED_OFF, Command::ENABLED_MODERATOR, Command::ENABLED_USERS, Command::ENABLED_ALL], true)) {
-			throw new \InvalidArgumentException('Invalid enabled', 5);
+			throw new \InvalidArgumentException('enabled', 5);
 		}
-
-		// FIXME Validate "bot name"
-		// FIXME Validate "cmd"
-		// FIXME Validate "script"
 
 		$command = new Command();
 		$command->setApp($app);
-		$command->setName($name);
 		$command->setCommand($cmd);
+		// FIXME Validate "bot name"
+		$command->setName($name);
+		// FIXME Validate "script"
 		$command->setScript($script);
 		$command->setResponse($response);
 		$command->setEnabled($enabled);
@@ -72,8 +76,8 @@ class CommandService {
 
 	/**
 	 * @param int $id
-	 * @param string $name
 	 * @param string $cmd
+	 * @param string $name
 	 * @param string $script
 	 * @param int $response
 	 * @param int $enabled
@@ -81,25 +85,29 @@ class CommandService {
 	 * @throws \InvalidArgumentException
 	 * @throws DoesNotExistException
 	 */
-	public function update(int $id, string $name, string $cmd, string $script, int $response, int $enabled): Command {
+	public function update(int $id, string $cmd, string $name, string $script, int $response, int $enabled): Command {
 		$command = $this->mapper->findById($id);
-
 		if (!\in_array($response, [Command::RESPONSE_NONE, Command::RESPONSE_USER, Command::RESPONSE_ALL], true)) {
-			throw new \InvalidArgumentException('Invalid response', 4);
+			throw new \InvalidArgumentException('response', 4);
 		}
 
 		if (!\in_array($enabled, [Command::ENABLED_OFF, Command::ENABLED_MODERATOR, Command::ENABLED_USERS, Command::ENABLED_ALL], true)) {
-			throw new \InvalidArgumentException('Invalid enabled', 5);
+			throw new \InvalidArgumentException('enabled', 5);
 		}
 
-		// FIXME Validate "bot name"
-		// FIXME Validate "cmd"
-		// FIXME Validate "script"
+		if ($command->getApp() !== '' && $command->getCommand() !== 'help') {
+			if ($cmd !== $command->getCommand()) {
+				try {
+					$this->mapper->find('', $cmd);
+					throw new \InvalidArgumentException('command', 1);
+				} catch (DoesNotExistException $e) {
+					$command->setCommand($cmd);
+				}
+			}
 
-		// $command->setApp($app);
-		if ($command->getApp() !== '') {
+			// FIXME Validate "bot name"
 			$command->setName($name);
-			$command->setCommand($cmd);
+			// FIXME Validate "script"
 			$command->setScript($script);
 		}
 
@@ -117,6 +125,15 @@ class CommandService {
 	public function delete(int $id): Command {
 		$command = $this->mapper->findById($id);
 		return $this->mapper->delete($command);
+	}
+	/**
+	 * @param string $app
+	 * @param string $cmd
+	 * @return Command
+	 * @throws DoesNotExistException
+	 */
+	public function find(string $app, string $cmd): Command {
+		return $this->mapper->find($app, $cmd);
 	}
 
 	/**

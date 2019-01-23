@@ -71,18 +71,18 @@ class CommandController extends OCSController {
 	}
 
 	/**
-	 * @param string $name
 	 * @param string $cmd
+	 * @param string $name
 	 * @param string $script
 	 * @param int $response
 	 * @param int $enabled
 	 * @return DataResponse
 	 */
-	public function create(string $name, string $cmd, string $script, int $response, int $enabled): DataResponse {
+	public function create(string $cmd, string $name, string $script, int $response, int $enabled): DataResponse {
 		try {
 			$command = $this->commandService->create('', $name, $cmd, $script, $response, $enabled);
 		} catch (\InvalidArgumentException $e) {
-			return new DataResponse([], Http::STATUS_BAD_REQUEST);
+			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
 		}
 
 		return new DataResponse([
@@ -120,20 +120,20 @@ class CommandController extends OCSController {
 
 	/**
 	 * @param int $id
-	 * @param string $name
 	 * @param string $cmd
+	 * @param string $name
 	 * @param string $script
 	 * @param int $response
 	 * @param int $enabled
 	 * @return DataResponse
 	 */
-	public function update(int $id, string $name, string $cmd, string $script, int $response, int $enabled): DataResponse {
+	public function update(int $id, string $cmd, string $name, string $script, int $response, int $enabled): DataResponse {
 		try {
 			$command = $this->commandService->update($id, $name,  $cmd, $script, $response, $enabled);
 		} catch (DoesNotExistException $e) {
 			return new DataResponse([], Http::STATUS_NOT_FOUND);
 		} catch (\InvalidArgumentException $e) {
-			return new DataResponse([], Http::STATUS_BAD_REQUEST);
+			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
 		}
 
 		return new DataResponse([
