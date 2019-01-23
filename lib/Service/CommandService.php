@@ -95,21 +95,23 @@ class CommandService {
 			throw new \InvalidArgumentException('enabled', 5);
 		}
 
-		if ($command->getApp() !== '' && $command->getCommand() !== 'help') {
-			if ($cmd !== $command->getCommand()) {
-				try {
-					$this->mapper->find('', $cmd);
-					throw new \InvalidArgumentException('command', 1);
-				} catch (DoesNotExistException $e) {
-					$command->setCommand($cmd);
-				}
-			}
-
-			// FIXME Validate "bot name"
-			$command->setName($name);
-			// FIXME Validate "script"
-			$command->setScript($script);
+		if ($command->getApp() !== '' || $command->getCommand() === 'help') {
+			throw new \InvalidArgumentException('app', 0);
 		}
+
+		if ($cmd !== $command->getCommand()) {
+			try {
+				$this->mapper->find('', $cmd);
+				throw new \InvalidArgumentException('command', 1);
+			} catch (DoesNotExistException $e) {
+				$command->setCommand($cmd);
+			}
+		}
+
+		// FIXME Validate "bot name"
+		$command->setName($name);
+		// FIXME Validate "script"
+		$command->setScript($script);
 
 		$command->setResponse($response);
 		$command->setEnabled($enabled);
