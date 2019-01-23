@@ -25,9 +25,9 @@ namespace OCA\Spreed\Chat\Command;
 
 use OCA\Spreed\Chat\ChatManager;
 use OCA\Spreed\Chat\MessageParser;
-use OCA\Spreed\Chat\Parser\Command;
-use OCA\Spreed\Model\CommandMapper;
-use OCA\Spreed\Room;
+use OCA\Spreed\Chat\Parser\Command as CommandParser;
+use OCA\Spreed\Service\CommandService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\Comments\IComment;
 use OCP\IUser;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -37,26 +37,29 @@ class Listener {
 
 	/** @var EventDispatcherInterface */
 	protected $dispatcher;
-	/** @var CommandMapper */
-	protected $commandMapper;
-	/** @var DefaultExecutor */
-	protected $defaultExecutor;
+	/** @var CommandService */
+	protected $commandService;
+	/** @var Executor */
+	protected $executor;
 
-	public function __construct(EventDispatcherInterface $dispatcher, CommandMapper $commandMapper, DefaultExecutor $defaultExecutor) {
+	public function __construct(EventDispatcherInterface $dispatcher, CommandService $commandService, Executor $executor) {
 		$this->dispatcher = $dispatcher;
-		$this->commandMapper = $commandMapper;
-		$this->defaultExecutor = $defaultExecutor;
+		$this->commandService = $commandService;
+		$this->executor = $executor;
 	}
 
 	public function register(): void {
 		$this->dispatcher->addListener(ChatManager::class . '::preSendMessage', function(GenericEvent $event) {
 			/** @var IComment $message */
 			$message = $event->getArgument('comment');
-			if (strpos($message->getMessage(), '/') === 0) {
-				if (!$this->executeCommands($event)) {
-					$this->showHelp($event);
-				}
+
+			try {
+				[$command, $arguments] = $this->getCommand($message->getMessage());
+			} catch (DoesNotExistException $e) {
+				return;
 			}
+
+			$this->executor->exec($event->getSubject(), $message, $command, $arguments);
 		});
 
 		$this->dispatcher->addListener(MessageParser::class . '::parseMessage', function(GenericEvent $event) {
@@ -67,8 +70,8 @@ class Listener {
 				return;
 			}
 
-			/** @var Command $parser */
-			$parser = \OC::$server->query(Command::class);
+			/** @var CommandParser $parser */
+			$parser = \OC::$server->query(CommandParser::class);
 
 			$user = $event->getArgument('user');
 			if ($user instanceof IUser) {
@@ -91,34 +94,41 @@ class Listener {
 		});
 	}
 
-	public function executeCommands(GenericEvent $event): bool {
-		/** @var Room $room */
-		$room = $event->getSubject();
-		/** @var IComment $message */
-		$message = $event->getArgument('comment');
+	/**
+	 * @param string $message
+	 * @return array [Command, string]
+	 * @throws DoesNotExistException
+	 */
+	protected function getCommand(string $message): array {
+		[$app, $cmd, $arguments] = $this->matchesCommand($message);
 
-		$commands = $this->commandMapper->findAll();
-		foreach ($commands as $command) {
-			if ($this->matchesCommand($message->getMessage(), $command->getCommand())) {
-				$this->defaultExecutor->exec($room, $message, $command);
-				return true;
-			}
+		if ($app === '') {
+			throw new DoesNotExistException('No command found');
 		}
 
-		return false;
-	}
-
-	protected function showHelp(GenericEvent $event): void {
-		// FIXME
-	}
-
-	protected function matchesCommand(string $message, string $command): bool {
-		$command = '/' . $command;
-
-		if ($message === $command) {
-			return true;
+		try {
+			return [$this->commandService->find($app, $cmd), trim($arguments)];
+		} catch (DoesNotExistException $e) {
 		}
 
-		return strpos($message, $command . ' ') === 0;
+		try {
+			return [$this->commandService->find('',  $app), trim($cmd . ' ' . $arguments)];
+		} catch (DoesNotExistException $e) {
+		}
+
+		return [$this->commandService->find('',  'help'), trim($message)];
+	}
+
+	protected function matchesCommand(string $message): array {
+		if (strpos($message, '/') !== 0) {
+			return ['', '', ''];
+		}
+
+		$cmd = explode(' ', substr($message, 1), 3);
+		return [
+			$cmd[0],
+			$cmd[1] ?? '',
+			$cmd[2] ?? '',
+		];
 	}
 }
